@@ -8,3 +8,5 @@ There are three ways to perform this without having to use a web framework like 
 
 So I'm gonna trying solving this problem with Semantic Texton Forests, since it's the most efficient way to implement the solution.
 Also, STF combines Keypoints matching & decision trees.
+
+There are many python libraries that can be used to perform the task, these can be found in the requirements.txt file.
