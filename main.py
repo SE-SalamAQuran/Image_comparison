@@ -1,64 +1,82 @@
-from key_generator.key_generator import generate
-from SSIM_PIL import compare_ssim
+from numpy.core.fromnumeric import reshape, size
+from skimage.metrics import structural_similarity as ssim
+import argparse
+import imutils
 import cv2
-import numpy as np
-import PIL
-from PIL import Image
-from cv2 import cvtColor, COLOR_BGR2GRAY
+import json
+import math
 
-from SSIM_PIL import compare_ssim
-from PIL import Image
-from numpy.lib.type_check import imag
+# construct the argument parse and parse the arguments
+ap = argparse.ArgumentParser()
+ap.add_argument("-f", "--first", required=True,	help="first input image")
+ap.add_argument("-s", "--second", required=True, help="second")
+ap.add_argument("-k", "--key", required=True, help="api-key")    
+args = vars(ap.parse_args())
 
-
-url = "./images/image_edited.jpg"
-img = cv2.imread(url)
-ret, bw_img = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
-cv2.imshow("Binary Image",bw_img)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-
-def ssim():
-
-    path1 = "./images/image_original.jpg"
-    path2 = "./images/image_edited.jpg"
-    
-
-    src1 = cv2.imread(path1)
-    src2 = cv2.imread(path2)
-
-    image1 = cv2.cvtColor(src1, cv2.COLOR_BGR2GRAY)
-    image2 = cv2.cvtColor(src2, cv2.COLOR_BGR2GRAY)
-
-    value = compare_ssim(image1, image2)
-    return value
+# load the two input images + API key
+imageA = cv2.imread(args["first"])
+imageB = cv2.imread(args["second"])
+key = args["key"]
+f = open("keys.json", 'r')
+# returns JSON object as  a dictionary 
+data = json.load(f) 
 
 
-def mse(image1, image2):
-    err = np.sum((image1.astype("float")) - (image2.astype("float")) ** 2)
-    err /= float(image1.shape[0] * image1.shape[1])
-    return err
-
-# img1 = cv2.imread("./images/image_original.jpg")
-# img2 = cv2.imread("./images/image_edited.jpg")
-
-from PIL import Image, ImageOps
-import numpy as np
-
-img = Image.open(url).convert('L')
-img_inverted = ImageOps.invert(img)
-
-np_img = np.array(img_inverted)
-np_img[np_img > 0] = 1
-
-print(np_img)
+#check validation, i,e: if the key exists in our list of keys
+def validate_key(api_key):
+    result = False
+    i=0
+    for i in range(len(data['secret_keys'])):
+        if api_key == data['secret_keys'][i]['key']:
+            result = True
+        else:
+            result = False
+        i+=1
+        return result
 
 
 
+#If the used enters a wrong api key, the  program will exit and issue an error message
+
+if(not validate_key(key)):
+    print("Wrong access key")
+    exit()
+
+#After checking that all inputs are valid we start the sequence of processes
 
 
+# Resizing both images on a fixed scale
+#Without this, the program will fail to compare between images of different sizes/dimensions
+
+#Resizing only executes when the two images have different dimensions
+#If the sizes are the same the program will skip to the next step, which is converting the images to grayscale
+
+if imageA.size != imageB.size:
+    scale_percent = 60 # percent of original size
+    width = int(imageA.shape[1] * scale_percent / 100)
+    height = int(imageA.shape[0] * scale_percent / 100)
+    dim = (width, height)
+  
+# resize both images
+    imageA = cv2.resize(imageA, dim, interpolation = cv2.INTER_AREA)
+    imageB = cv2.resize(imageB, dim, interpolation =  cv2.INTER_AREA)
 
 
+#Now the two images have the same dimensions
+# convert the images to grayscale
+#Why gray scale?
+#Because the two images will have different color channels and we must make them the same
+#  in the computer's point of view.
 
+grayA = cv2.cvtColor(src=imageA, code=cv2.COLOR_BGR2GRAY)
+grayB = cv2.cvtColor(src=imageB, code=cv2.COLOR_BGR2GRAY)
 
+#Now that we have two images of the same size and color channel 
 
+#We compute the Structural Similarity Index Measure (SSIM) between the two
+# images, ensuring that the difference image is returned
+
+(score, diff) = ssim(grayA, grayB, full=True)
+diff = (diff * 255).astype("uint8")
+print("Similarity percentage: {} %".format(score * 100))
+print("Rounded result is: ", round(score * 100, 2), "%")
